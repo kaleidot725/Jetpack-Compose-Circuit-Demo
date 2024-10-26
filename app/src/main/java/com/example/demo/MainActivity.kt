@@ -5,15 +5,14 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.remember
 import com.example.demo.data.RandomService
-import com.example.demo.presenter.Change
-import com.example.demo.presenter.CounterEvent
 import com.example.demo.presenter.CounterPresenter
-import com.example.demo.presenter.Randomize
+import com.example.demo.screen.CounterScreen
 import com.example.demo.ui.CounterApp
+import com.slack.circuit.foundation.Circuit
+import com.slack.circuit.foundation.CircuitCompositionLocals
+import com.slack.circuit.foundation.CircuitContent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers.Main
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private val scope = CoroutineScope(Main)
@@ -23,20 +22,16 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
-            val events = remember { MutableSharedFlow<CounterEvent>() }
-            val model = CounterPresenter(
-                events = events,
-                randomService = randomService,
-            )
+            val circuit: Circuit = Circuit.Builder()
+                .addPresenter<CounterScreen, CounterScreen.State>(CounterPresenter(randomService))
+                .addUi<CounterScreen, CounterScreen.State> { state, modifier -> CounterApp(state, modifier) }
+                .build()
 
-            CounterApp(
-                model = model,
-                onIncreaseOne = { scope.launch { events.emit(Change(1)) } },
-                onIncreaseTen = { scope.launch { events.emit(Change(10)) } },
-                onDecreaseOne = { scope.launch { events.emit(Change(-1)) } },
-                onDecreaseTen = { scope.launch { events.emit(Change(-10)) } },
-                onRandomize = { scope.launch { events.emit(Randomize) } }
-            )
+            setContent {
+                CircuitCompositionLocals(circuit) {
+                    CircuitContent(CounterScreen)
+                }
+            }
         }
     }
 }

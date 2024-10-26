@@ -15,26 +15,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.demo.presenter.CounterModel
+import com.example.demo.screen.CounterScreen
 import kotlinx.coroutines.flow.Flow
 
 @Composable
 fun CounterApp(
-    model: CounterModel,
-    onIncreaseOne: () -> Unit,
-    onIncreaseTen: () -> Unit,
-    onDecreaseOne: () -> Unit,
-    onDecreaseTen: () -> Unit,
-    onRandomize: () -> Unit
+    state: CounterScreen.State,
+    modifier: Modifier = Modifier,
 ) {
-    Column {
+    Column(modifier) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .size(150.dp)
                 .align(Alignment.CenterHorizontally)
         ) {
-            if (model.loading) {
+            if (state.loading) {
                 CircularProgressIndicator(
                     modifier = Modifier
                         .size(100.dp)
@@ -42,7 +38,7 @@ fun CounterApp(
                 )
             } else {
                 Text(
-                    text = model.value.toString(),
+                    text = state.value.toString(),
                     fontSize = 100.sp,
                     textAlign = TextAlign.Center,
                     modifier = Modifier
@@ -52,23 +48,38 @@ fun CounterApp(
             }
         }
 
-        Button(onClick = onIncreaseOne, modifier = Modifier.fillMaxWidth()) {
+        Button(
+            onClick = { state.eventSink(CounterScreen.Event.Change(state.value + 1)) },
+            modifier = Modifier.fillMaxWidth()
+        ) {
             Text(text = "INCREASE ONE")
         }
 
-        Button(onClick = onIncreaseTen, modifier = Modifier.fillMaxWidth()) {
+        Button(
+            onClick = { state.eventSink(CounterScreen.Event.Change(state.value + 10)) },
+            modifier = Modifier.fillMaxWidth()
+        ) {
             Text(text = "INCREASE TEN")
         }
 
-        Button(onClick = onDecreaseOne, modifier = Modifier.fillMaxWidth()) {
+        Button(
+            onClick = { state.eventSink(CounterScreen.Event.Change(state.value - 1)) },
+            modifier = Modifier.fillMaxWidth()
+        ) {
             Text(text = "DECREASE ONE")
         }
 
-        Button(onClick = onDecreaseTen, modifier = Modifier.fillMaxWidth()) {
+        Button(
+            onClick = { state.eventSink(CounterScreen.Event.Change(state.value - 10)) },
+            modifier = Modifier.fillMaxWidth()
+        ) {
             Text(text = "DECREASE TEN")
         }
 
-        Button(onClick = onRandomize, modifier = Modifier.fillMaxWidth()) {
+        Button(
+            onClick = { state.eventSink(CounterScreen.Event.Randomize) },
+            modifier = Modifier.fillMaxWidth()
+        ) {
             Text(text = "RANDOMIZE")
         }
     }

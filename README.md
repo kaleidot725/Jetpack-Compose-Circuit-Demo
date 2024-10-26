@@ -1,5 +1,5 @@
 <h1 align="center">
-    Jetpack-Compose-Rin-Demo
+    Jetpack-Compose-Circuit-Demo
 </h1>
 
 <h3 align="center">

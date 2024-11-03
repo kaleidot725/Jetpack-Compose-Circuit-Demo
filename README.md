@@ -3,7 +3,7 @@
 </h1>
 
 <h3 align="center">
-    <img align="center" width=399 src="./docs/sample.gif" vspace="30">
+    <img align="center" width=399 src="./docs/demo.gif" vspace="30">
 </h3>
 
 
@@ -16,136 +16,253 @@ This application has next features.
 
 ## 🏢Implementation
 
-This application is implemented by rin.
+This application is implemented by Circuit.
 
-![](./docs/architecture.drawio.svg)
+https://slackhq.github.io/circuit/ 
 
-### View(Jetpack Compose UI)
+### Home
+
+#### Screen
 
 ```kotlin
-class MainActivity : ComponentActivity() {
-    private val scope = CoroutineScope(Main)
-    private val randomService = RandomService.create()
+@Parcelize
+data object HomeScreen : Screen {
+    data class State(
+        val value: Int = 0,
+        val loading: Boolean = false,
+        val eventSink: (Event) -> Unit,
+    ) : CircuitUiState
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+    sealed class Event : CircuitUiEvent {
+        data class Change(
+            val delta: Int,
+        ) : Event()
 
-        setContent {
-            val events = remember { MutableSharedFlow<CounterEvent>() }
-            val model = CounterPresenter(
-                events = events,
-                randomService = randomService,
-            )
+        data object Randomize : Event()
 
-            CounterApp(
-                model = model,
-                onIncreaseOne = { scope.launch { events.emit(Change(1)) } },
-                onIncreaseTen = { scope.launch { events.emit(Change(10)) } },
-                onDecreaseOne = { scope.launch { events.emit(Change(-1)) } },
-                onDecreaseTen = { scope.launch { events.emit(Change(-10)) } },
-                onRandomize = { scope.launch { events.emit(Randomize) } }
-            )
-        }
+        data object GoToDetails : Event()
     }
 }
-
-@Composable
-fun CounterApp(
-    model: CounterModel,
-    onIncreaseOne: () -> Unit,
-    onIncreaseTen: () -> Unit,
-    onDecreaseOne: () -> Unit,
-    onDecreaseTen: () -> Unit,
-    onRandomize: () -> Unit
-) {
-    Column {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .size(150.dp)
-                .align(Alignment.CenterHorizontally)
-        ) {
-            if (model.loading) {
-                CircularProgressIndicator(
-                    modifier = Modifier
-                        .size(100.dp)
-                        .align(Alignment.Center)
-                )
-            } else {
-                Text(
-                    text = model.value.toString(),
-                    fontSize = 100.sp,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .align(Alignment.Center)
-                )
-            }
-        }
-
-        Button(onClick = onIncreaseOne, modifier = Modifier.fillMaxWidth()) {
-            Text(text = "INCREASE ONE")
-        }
-
-        Button(onClick = onIncreaseTen, modifier = Modifier.fillMaxWidth()) {
-            Text(text = "INCREASE TEN")
-        }
-
-        Button(onClick = onDecreaseOne, modifier = Modifier.fillMaxWidth()) {
-            Text(text = "DECREASE ONE")
-        }
-
-        Button(onClick = onDecreaseTen, modifier = Modifier.fillMaxWidth()) {
-            Text(text = "DECREASE TEN")
-        }
-
-        Button(onClick = onRandomize, modifier = Modifier.fillMaxWidth()) {
-            Text(text = "RANDOMIZE")
-        }
-    }
-}
-
 ```
 
-### Presenter(Using Jetpack Compose)
+#### Presenter
 
 ```kotlin
-sealed interface CounterEvent
-data class Change(val delta: Int) : CounterEvent
-object Randomize : CounterEvent
+class HomePresenter(
+    private val navigator: Navigator,
+    private val randomService: RandomService,
+) : Presenter<HomeScreen.State> {
+    @Composable
+    override fun present(): HomeScreen.State {
+        val scope = rememberCoroutineScope()
+        var count by rememberSaveable { mutableIntStateOf(0) }
+        var loading by rememberSaveable { mutableStateOf(false) }
 
-data class CounterModel(
-    val value: Int = 0,
-    val loading: Boolean = false,
-)
-
-@Composable
-fun CounterPresenter(
-    events: Flow<CounterEvent>,
-    randomService: RandomService,
-): CounterModel {
-    var count by rememberRetained { mutableIntStateOf(0) }
-    var loading by rememberRetained { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        events.collect { event ->
+        return HomeScreen.State(
+            value = count,
+            loading = loading,
+        ) { event ->
             when (event) {
-                is Change -> {
-                    count += event.delta
+                is HomeScreen.Event.Change -> {
+                    count = event.delta
                 }
-
-                Randomize -> {
-                    loading = true
-                    launch {
+                HomeScreen.Event.Randomize -> {
+                    scope.launch {
+                        loading = true
                         count = randomService.get(-20, 20)
                         loading = false
                     }
                 }
+
+                HomeScreen.Event.GoToDetails -> {
+                    navigator.goTo(DetailsScreen(count))
+                }
             }
         }
     }
 
-    return CounterModel(count, loading)
+    class Factory(
+        private val randomService: RandomService,
+    ) : Presenter.Factory {
+        override fun create(
+            screen: Screen,
+            navigator: Navigator,
+            context: CircuitContext,
+        ): Presenter<*>? {
+            return when (screen) {
+                is HomeScreen -> return HomePresenter(navigator, randomService)
+                else -> null
+            }
+        }
+    }
+}
+```
+
+#### ViewContent
+
+```kotlin
+@Composable
+fun HomeViewContent(
+    state: HomeScreen.State,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier) {
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .size(150.dp)
+                    .align(Alignment.CenterHorizontally),
+        ) {
+            if (state.loading) {
+                CircularProgressIndicator(
+                    modifier =
+                        Modifier
+                            .size(100.dp)
+                            .align(Alignment.Center),
+                )
+            } else {
+                Text(
+                    text = state.value.toString(),
+                    fontSize = 100.sp,
+                    textAlign = TextAlign.Center,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .align(Alignment.Center),
+                )
+            }
+        }
+
+        Button(
+            onClick = { state.eventSink(HomeScreen.Event.Change(state.value + 1)) },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(text = "INCREASE ONE")
+        }
+
+        Button(
+            onClick = { state.eventSink(HomeScreen.Event.Change(state.value + 10)) },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(text = "INCREASE TEN")
+        }
+
+        Button(
+            onClick = { state.eventSink(HomeScreen.Event.Change(state.value - 1)) },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(text = "DECREASE ONE")
+        }
+
+        Button(
+            onClick = { state.eventSink(HomeScreen.Event.Change(state.value - 10)) },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(text = "DECREASE TEN")
+        }
+
+        Button(
+            onClick = { state.eventSink(HomeScreen.Event.Randomize) },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(text = "RANDOMIZE")
+        }
+
+        Button(
+            onClick = { state.eventSink(HomeScreen.Event.GoToDetails) },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(text = "Go to Details")
+        }
+    }
+}
+```
+
+### Details 
+
+#### Screen
+
+```kotlin
+@Parcelize
+data class DetailsScreen(
+    val value: Int,
+) : Screen {
+    data class State(
+        val value: Int = 0,
+        val eventSink: (Event) -> Unit,
+    ) : CircuitUiState
+
+    sealed class Event : CircuitUiEvent {
+        data object Back : Event()
+    }
+}
+```
+
+#### Presenter
+
+```kotlin
+class DetailsPresenter(
+    private val navigator: Navigator,
+    private val screen: DetailsScreen,
+) : Presenter<DetailsScreen.State> {
+    @Composable
+    override fun present(): DetailsScreen.State =
+        DetailsScreen.State(value = screen.value) {
+            when (it) {
+                DetailsScreen.Event.Back -> navigator.pop()
+            }
+        }
+
+    class Factory : Presenter.Factory {
+        override fun create(
+            screen: Screen,
+            navigator: Navigator,
+            context: CircuitContext,
+        ): Presenter<*>? {
+            return when (screen) {
+                is DetailsScreen -> return DetailsPresenter(navigator, screen)
+                else -> null
+            }
+        }
+    }
+}
+```
+
+#### ViewContent
+
+```kotlin
+@Composable
+fun DetailsViewContent(
+    state: DetailsScreen.State,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier) {
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .size(150.dp)
+                    .align(Alignment.CenterHorizontally),
+        ) {
+            Text(
+                text = state.value.toString(),
+                fontSize = 100.sp,
+                textAlign = TextAlign.Center,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.Center),
+            )
+        }
+
+        Button(
+            onClick = { state.eventSink(DetailsScreen.Event.Back) },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(text = "Back")
+        }
+    }
 }
 ```
 
@@ -187,8 +304,49 @@ interface RandomService {
         }
     }
 }
-
 ```
+
+### App 
+
+```kotlin
+class MainActivity : ComponentActivity() {
+    private val randomService = RandomService.create()
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        setContent {
+            val circuit: Circuit =
+                Circuit
+                    .Builder()
+                    .addPresenterFactory(HomePresenter.Factory(randomService))
+                    .addPresenterFactory(DetailsPresenter.Factory())
+                    .addUi<HomeScreen, HomeScreen.State> { state, modifier ->
+                        HomeViewContent(
+                            state,
+                            modifier,
+                        )
+                    }.addUi<DetailsScreen, DetailsScreen.State> { state, modifier ->
+                        DetailsViewContent(
+                            state,
+                            modifier,
+                        )
+                    }.build()
+
+            setContent {
+                MaterialTheme {
+                    val backStack = rememberSaveableBackStack(HomeScreen)
+                    val navigator = rememberCircuitNavigator(backStack)
+                    CircuitCompositionLocals(circuit) {
+                        NavigableCircuitContent(navigator = navigator, backStack = backStack)
+                    }
+                }
+            }
+        }
+    }
+}
+```
+
 
 ## 📚Library
 
@@ -197,7 +355,7 @@ This application uses the libraries below.
 | Name            | Link                                                         |
 |-----------------| ------------------------------------------------------------ |
 | Jetpack Compose | https://developer.android.com/jetpack/compose                |
-| Rin             | https://github.com/takahirom/Rin                          |
+| Circuit             | https://slackhq.github.io/circuit/                         |
 | OkHttp          | https://square.github.io/okhttp/                             |
 | Retrofit        | https://square.github.io/retrofit/                           |
 
@@ -205,7 +363,7 @@ This application uses the libraries below.
 
 | Name          | Link                              |
 |---------------|-----------------------------------|
-| Rin \| README | https://github.com/takahirom/Rin/blob/main/README.md |
+| Circuit             | https://slackhq.github.io/circuit/                         |
 
 ## 💡License
 

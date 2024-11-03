@@ -5,10 +5,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.material3.MaterialTheme
 import com.example.demo.data.RandomService
-import com.example.demo.ui.details.Details
+import com.example.demo.ui.details.DetailsViewContent
 import com.example.demo.ui.details.DetailsPresenter
 import com.example.demo.ui.details.DetailsScreen
-import com.example.demo.ui.home.Home
+import com.example.demo.ui.home.HomeViewContent
 import com.example.demo.ui.home.HomePresenter
 import com.example.demo.ui.home.HomeScreen
 import com.slack.circuit.backstack.rememberSaveableBackStack
@@ -30,12 +30,12 @@ class MainActivity : ComponentActivity() {
                     .addPresenterFactory(HomePresenter.Factory(randomService))
                     .addPresenterFactory(DetailsPresenter.Factory())
                     .addUi<HomeScreen, HomeScreen.State> { state, modifier ->
-                        Home(
+                        HomeViewContent(
                             state,
                             modifier,
                         )
                     }.addUi<DetailsScreen, DetailsScreen.State> { state, modifier ->
-                        Details(
+                        DetailsViewContent(
                             state,
                             modifier,
                         )

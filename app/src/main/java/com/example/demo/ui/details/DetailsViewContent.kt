@@ -14,7 +14,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
-fun Details(
+fun DetailsViewContent(
     state: DetailsScreen.State,
     modifier: Modifier = Modifier,
 ) {
